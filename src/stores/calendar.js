@@ -11,6 +11,7 @@ import {
 } from '../services/api'
 import { useAuthStore } from './auth'
 import Swal from 'sweetalert2'
+import dayjs from 'dayjs'
 
 export const useCalendarStore = defineStore('calendar', {
   state: () => ({
@@ -24,20 +25,40 @@ export const useCalendarStore = defineStore('calendar', {
       this.error = null
       const auth = useAuthStore()
       try {
-        const locals = await fetchLocalEvents()
-        let googles = []
+        let allEvents = []
         if (auth.isAuthenticated && auth.user.google_calendar_connected) {
-          googles = await fetchGoogleEvents()
-        }
-        this.events = [
-          ...locals.map((e) => ({ ...e, source: 'local' })),
-          ...googles.map((e) => ({
-            ...e,
+          const responseData = await fetchGoogleEvents()
+          const googleEvents = responseData.google_events || []
+          const localEvents = responseData.local_events || []
+
+          console.log('Fetched Google Calendar Events:', googleEvents)
+          console.log('Fetched Unsynced Local Events:', localEvents)
+
+          const mappedGoogleEvents = googleEvents.map((event) => ({
+            id: event.id,
+            title: event.summary,
+            start: event.start.dateTime || event.start.date,
+            end: event.end.dateTime || event.end.date,
+            allDay: !event.start.dateTime,
             source: 'google',
             backgroundColor: '#4285F4',
             borderColor: '#4285F4',
-          })),
-        ]
+          }))
+
+          const mappedLocalEvents = localEvents.map((e) => ({
+            ...e,
+            source: 'local',
+          }))
+
+          allEvents = [...mappedGoogleEvents, ...mappedLocalEvents]
+        } else {
+          // Fallback to fetching only local events if not connected
+          const locals = await fetchLocalEvents()
+          console.log('Local Events:', locals)
+          allEvents = locals.map((e) => ({ ...e, source: 'local' }))
+        }
+
+        this.events = allEvents
       } catch (e) {
         this.error = e
       } finally {
@@ -47,18 +68,28 @@ export const useCalendarStore = defineStore('calendar', {
     async addEvent(event) {
       this.loading = true
       try {
-        const newLocal = await api.createLocalEvent(event)
+        // Create the event locally first for a fast UI response
+        const newLocal = await createLocalEvent(event)
         this.events.push({ ...newLocal, source: 'local' })
+
+        // If connected to Google, sync in the background after a 3-second delay
         if (useAuthStore().user.google_calendar_connected) {
-          try {
-            await api.createGoogleEvent(event)
-          } catch {
-            Swal.fire(
-              'Sync warning',
-              'Saved locally but failed Google sync',
-              'warning'
-            )
-          }
+          setTimeout(() => {
+            console.log('Attempting to sync new event to Google Calendar...')
+            createGoogleEvent(event)
+              .then(() => {
+                console.log('Successfully synced new event to Google Calendar.')
+                // Optionally, refetch events to get the Google ID for the new event
+                this.loadEvents()
+              })
+              .catch(() => {
+                Swal.fire(
+                  'Sync Warning',
+                  'The event was saved locally, but the background sync with Google Calendar failed.',
+                  'warning'
+                )
+              })
+          }, 3000) // 3-second delay
         }
       } catch (e) {
         Swal.fire('Error', e.response?.data?.message || e.message, 'error')
@@ -95,7 +126,30 @@ export const useCalendarStore = defineStore('calendar', {
         if (source === 'local') {
           await updateLocalEvent(id, eventFields)
         } else if (source === 'google') {
-          await updateGoogleEvent(id, eventFields)
+          const payload = {
+            summary: eventFields.title,
+            start: {},
+            end: {},
+            attendees: [],
+            reminders: { useDefault: true },
+          }
+
+          if (eventFields.allDay) {
+            payload.start.date = dayjs(eventFields.start).format('YYYY-MM-DD')
+            payload.end.date = dayjs(eventFields.end).format('YYYY-MM-DD')
+          } else {
+            payload.start.dateTime = new Date(eventFields.start).toISOString()
+            if (eventFields.end) {
+              payload.end.dateTime = new Date(eventFields.end).toISOString()
+            } else {
+              const startDate = new Date(eventFields.start)
+              payload.end.dateTime = new Date(
+                startDate.getTime() + 60 * 60 * 1000
+              ).toISOString()
+            }
+          }
+
+          await updateGoogleEvent(id, payload)
         }
         // After successful update, reload events from backend to ensure state is in sync
         await this.loadEvents()

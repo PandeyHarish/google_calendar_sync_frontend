@@ -94,24 +94,26 @@ function closeModal() {
 }
 
 async function handleModalSave(eventData) {
+  closeModal()
+
   if (modalMode.value === 'create') {
     await calendarStore.addEvent(eventData)
   } else if (modalMode.value === 'edit') {
     await calendarStore.updateEvent(eventData)
   }
-  if (calendarRef.value) calendarRef.value.getApi().refetchEvents();
-  closeModal()
+
+  if (calendarRef.value) calendarRef.value.getApi().refetchEvents()
 }
 
 async function handleModalDelete(eventId) {
+  closeModal()
   const event = currentEvents.value.find((e) => String(e.id) === String(eventId))
   if (event) {
     await calendarStore.deleteEvent(event)
   } else {
     console.error('Could not find event to delete with id:', eventId)
   }
-  if (calendarRef.value) calendarRef.value.getApi().refetchEvents();
-  closeModal()
+  if (calendarRef.value) calendarRef.value.getApi().refetchEvents()
 }
 
 async function handleEventUpdate(changeInfo) {
@@ -131,7 +133,6 @@ function formatDateTime(dateStr) {
 }
 
 async function syncWithGoogleCalendar() {
-  console.log('Synchronizing with Google Calendar...')
   await calendarStore.sync()
   if (calendarRef.value) calendarRef.value.getApi().refetchEvents()
 }
@@ -159,7 +160,7 @@ async function handleGoogleConnect() {
       })
     }
   } catch (error) {
-    console.error('Failed to get Google connect URL:', error)
+   
     Swal.fire({
       icon: 'error',
       title: 'Connection Failed',
@@ -197,6 +198,14 @@ async function handleGoogleDisconnect() {
 
 <template>
   <div class="flex h-screen font-sans text-sm">
+    <!-- Google Calendar-style Loading Bar -->
+    <div
+      v-if="calendarStore.loading"
+      class="absolute top-0 left-0 w-full h-1 z-50 overflow-hidden bg-blue-200"
+    >
+      <div class="h-full bg-blue-600 animate-progress-bar"></div>
+    </div>
+
     <div
       v-if="calendarStore.error"
       class="absolute top-4 left-1/2 -translate-x-1/2 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md shadow-md z-50"

@@ -5,3 +5,17 @@ body,
   padding: 0;
   height: 100%;
 }
+
+/* Google Calendar-style progress bar animation */
+@keyframes progressBarAnimation {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-progress-bar {
+  animation: progressBarAnimation 1.5s linear infinite;
+}

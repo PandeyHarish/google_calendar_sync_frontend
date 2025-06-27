@@ -54,7 +54,7 @@ export async function deleteGoogleEvent(id) {
 // --- Auth ---
 export async function getAuthenticatedUser() {
   const { data } = await axios.get(`${API_BASE}/auth/me`)
-  return data
+  return data.data
 }
 
 export async function logoutUser() {
