@@ -107,7 +107,9 @@ async function handleModalSave(eventData) {
 
 async function handleModalDelete(eventId) {
   closeModal()
-  const event = currentEvents.value.find((e) => String(e.id) === String(eventId))
+  const event = currentEvents.value.find(
+    (e) => String(e.id) === String(eventId)
+  )
   if (event) {
     await calendarStore.deleteEvent(event)
   } else {
@@ -142,15 +144,10 @@ async function handleGoogleConnect() {
     const response = await axios.get(
       `http://127.0.0.1:8888/api/auth/google/redirect`
     )
-    // Defensive: check for status and url
-    if (response.status === 200) {
-      window.location.href = 'http://127.0.0.1:5173/'
-      Swal.fire({
-        icon: 'success',
-        title: 'Connection Successful',
-        text: 'Google authentication URL obtained successfully.',
-        confirmButtonColor: '#4285F4',
-      })
+
+    if (response.status === 200 && response.data?.data?.url) {
+      // Redirect user to Google OAuth URL
+      window.location.href = response.data.data.url
     } else {
       Swal.fire({
         icon: 'error',
@@ -160,7 +157,6 @@ async function handleGoogleConnect() {
       })
     }
   } catch (error) {
-   
     Swal.fire({
       icon: 'error',
       title: 'Connection Failed',
@@ -177,8 +173,8 @@ async function handleLogout() {
 async function handleGoogleDisconnect() {
   try {
     // You need to implement this endpoint in your backend and api.js
-    await authStore.disconnectGoogle();
-    await authStore.checkAuth(); // Refresh user info
+    await authStore.disconnectGoogle()
+    await authStore.checkAuth() // Refresh user info
     Swal.fire({
       icon: 'success',
       title: 'Disconnected',

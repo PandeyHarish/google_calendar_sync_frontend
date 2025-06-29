@@ -75,11 +75,32 @@ export const useCalendarStore = defineStore('calendar', {
         // If connected to Google, sync in the background after a 3-second delay
         if (useAuthStore().user.google_calendar_connected) {
           setTimeout(() => {
-            console.log('Attempting to sync new event to Google Calendar...')
-            createGoogleEvent(event)
+            // Format for Google
+            const googlePayload = {
+              summary: event.title,
+              description: event.description,
+              location: event.location,
+              start: {},
+              end: {},
+              attendees: event.attendees || [],
+              recurrence: event.recurrence || null,
+              visibility: event.visibility || undefined,
+              status: event.status || undefined,
+              colorId: event.colorId || undefined,
+              reminders: { useDefault: true },
+            }
+            if (event.allDay) {
+              googlePayload.start.date = dayjs(event.start).format('YYYY-MM-DD')
+              googlePayload.end.date = dayjs(event.end).format('YYYY-MM-DD')
+            } else {
+              googlePayload.start.dateTime = dayjs(event.start).toISOString()
+              googlePayload.end.dateTime = event.end
+                ? dayjs(event.end).toISOString()
+                : dayjs(event.start).add(1, 'hour').toISOString()
+            }
+
+            createGoogleEvent(googlePayload)
               .then(() => {
-                console.log('Successfully synced new event to Google Calendar.')
-                // Optionally, refetch events to get the Google ID for the new event
                 this.loadEvents()
               })
               .catch(() => {
@@ -89,7 +110,7 @@ export const useCalendarStore = defineStore('calendar', {
                   'warning'
                 )
               })
-          }, 3000) // 3-second delay
+          }, 3000)
         }
       } catch (e) {
         Swal.fire('Error', e.response?.data?.message || e.message, 'error')
@@ -105,7 +126,6 @@ export const useCalendarStore = defineStore('calendar', {
         (e) => String(e.id) === String(id) && e.source === source
       )
       if (eventIndex === -1) {
-        // Try reloading events in case state is stale
         await this.loadEvents()
         eventIndex = this.events.findIndex(
           (e) => String(e.id) === String(id) && e.source === source
@@ -126,11 +146,18 @@ export const useCalendarStore = defineStore('calendar', {
         if (source === 'local') {
           await updateLocalEvent(id, eventFields)
         } else if (source === 'google') {
+          // Format for Google
           const payload = {
             summary: eventFields.title,
+            description: eventFields.description,
+            location: eventFields.location,
             start: {},
             end: {},
-            attendees: [],
+            attendees: eventFields.attendees || [],
+            recurrence: eventFields.recurrence || null,
+            visibility: eventFields.visibility || undefined,
+            status: eventFields.status || undefined,
+            colorId: eventFields.colorId || undefined,
             reminders: { useDefault: true },
           }
 
@@ -138,23 +165,16 @@ export const useCalendarStore = defineStore('calendar', {
             payload.start.date = dayjs(eventFields.start).format('YYYY-MM-DD')
             payload.end.date = dayjs(eventFields.end).format('YYYY-MM-DD')
           } else {
-            payload.start.dateTime = new Date(eventFields.start).toISOString()
-            if (eventFields.end) {
-              payload.end.dateTime = new Date(eventFields.end).toISOString()
-            } else {
-              const startDate = new Date(eventFields.start)
-              payload.end.dateTime = new Date(
-                startDate.getTime() + 60 * 60 * 1000
-              ).toISOString()
-            }
+            payload.start.dateTime = dayjs(eventFields.start).toISOString()
+            payload.end.dateTime = eventFields.end
+              ? dayjs(eventFields.end).toISOString()
+              : dayjs(eventFields.start).add(1, 'hour').toISOString()
           }
 
           await updateGoogleEvent(id, payload)
         }
-        // After successful update, reload events from backend to ensure state is in sync
         await this.loadEvents()
       } catch (error) {
-        // Rollback on failure
         this.events[eventIndex] = originalEvent
         const message =
           error.response?.data?.message || 'Could not update the event.'
