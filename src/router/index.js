@@ -8,12 +8,17 @@ const routes = [
     path: '/',
     name: 'Home',
     component: HomePage,
-    meta: { requiresAuth: true },
+    meta: {requiresAuth: true},
   },
   {
     path: '/login',
     name: 'Login',
     component: LoginPage,
+  },
+  {
+    path: '/events',
+    name: 'event',
+    component: HomePage,
   },
   {
     path: '/auth/google/callback',

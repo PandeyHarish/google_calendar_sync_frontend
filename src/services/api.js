@@ -29,7 +29,9 @@ export async function fetchLocalEvents() {
 }
 
 export async function createLocalEvent(event) {
+  console.log('Sending event data to backend:', event)
   const { data } = await axios.post(`${API_BASE}/events`, event)
+  console.log('Backend response:', data)
   return data
 }
 

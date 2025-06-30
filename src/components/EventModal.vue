@@ -10,6 +10,14 @@
           {{ mode === 'create' ? 'Create Event' : 'Edit Event' }}
         </h3>
 
+        <!-- Guest Info (only for unauthenticated users) -->
+        <div v-if="!authStore.isAuthenticated" class="mb-6">
+          <label class="block mb-1 text-gray-600 font-semibold">Your Name</label>
+          <input v-model="guestName" type="text" placeholder="Enter your name" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 mb-2" />
+          <label class="block mb-1 text-gray-600 font-semibold">Your Email</label>
+          <input v-model="guestEmail" type="email" placeholder="Enter your email" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+        </div>
+
         <!-- Title -->
         <div class="mb-6">
           <input
@@ -200,7 +208,7 @@
             Cancel
           </button>
           <button
-            v-if="mode === 'edit'"
+            v-if="mode === 'edit' && authStore.isAuthenticated"
             @click="onDelete"
             class="px-6 py-2 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors"
           >
@@ -217,12 +225,15 @@ import { reactive, watch, ref } from 'vue'
 import dayjs from 'dayjs'
 import flatPickr from 'vue-flatpickr-component'
 import 'flatpickr/dist/flatpickr.css'
+import { useAuthStore } from '../stores/auth'
 
 const props = defineProps({
   mode: String, // 'create' | 'edit'
   event: Object,
 })
 const emit = defineEmits(['save', 'cancel', 'delete'])
+
+const authStore = useAuthStore()
 
 const localEvent = reactive({
   id: null,
@@ -252,6 +263,8 @@ const flatpickrConfig = reactive({
 const attendeeInput = ref('')
 const attendeeList = ref([])
 const recurrenceRule = ref('')
+const guestName = ref('')
+const guestEmail = ref('')
 
 function formatForInput(dateStr) {
   if (!dateStr) return ''
@@ -323,7 +336,11 @@ function onSave() {
   }
   // Attendees as array
   eventPayload.attendees = attendeeList.value
-  // Organizer/creator: set in parent or backend, not here
+  // Add guest info if not authenticated
+  if (!authStore.isAuthenticated) {
+    eventPayload.guestName = guestName.value
+    eventPayload.guestEmail = guestEmail.value
+  }
   if (eventPayload.end === '') {
     eventPayload.end = null
   }

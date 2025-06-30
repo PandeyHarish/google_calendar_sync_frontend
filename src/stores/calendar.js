@@ -35,6 +35,7 @@ export const useCalendarStore = defineStore('calendar', {
           console.log('Fetched Unsynced Local Events:', localEvents)
 
           const mappedGoogleEvents = googleEvents.map((event) => ({
+            ...event,
             id: event.id,
             title: event.summary,
             start: event.start.dateTime || event.start.date,
@@ -69,36 +70,40 @@ export const useCalendarStore = defineStore('calendar', {
       this.loading = true
       try {
         // Create the event locally first for a fast UI response
-        const newLocal = await createLocalEvent(event)
+        const newLocal = await createLocalEvent({
+          ...event,
+          guest_name: event.guest_name,
+          guest_email: event.guest_email,
+        })
         this.events.push({ ...newLocal, source: 'local' })
 
         // If connected to Google, sync in the background after a 3-second delay
         if (useAuthStore().user.google_calendar_connected) {
           setTimeout(() => {
-            // Format for Google
+            // Use the same structure as your local payload for Google sync
             const googlePayload = {
-              summary: event.title,
+              title: event.title,
               description: event.description,
               location: event.location,
-              start: {},
-              end: {},
-              attendees: event.attendees || [],
+              start: dayjs(event.start).toISOString(),
+              end: event.end
+                ? dayjs(event.end).toISOString()
+                : dayjs(event.start).add(1, 'hour').toISOString(),
+              attendees: Array.isArray(event.attendees)
+                ? event.attendees
+                    .filter((a) => a.email)
+                    .map((a) => ({ email: a.email }))
+                : [],
               recurrence: event.recurrence || null,
               visibility: event.visibility || undefined,
               status: event.status || undefined,
               colorId: event.colorId || undefined,
-              reminders: { useDefault: true },
+              reminders: event.reminders || { useDefault: true },
+              url: event.url || undefined,
+              organizer: event.organizer || undefined,
+              creator: event.creator || undefined,
+              attachments: event.attachments || undefined,
             }
-            if (event.allDay) {
-              googlePayload.start.date = dayjs(event.start).format('YYYY-MM-DD')
-              googlePayload.end.date = dayjs(event.end).format('YYYY-MM-DD')
-            } else {
-              googlePayload.start.dateTime = dayjs(event.start).toISOString()
-              googlePayload.end.dateTime = event.end
-                ? dayjs(event.end).toISOString()
-                : dayjs(event.start).add(1, 'hour').toISOString()
-            }
-
             createGoogleEvent(googlePayload)
               .then(() => {
                 this.loadEvents()
@@ -110,7 +115,7 @@ export const useCalendarStore = defineStore('calendar', {
                   'warning'
                 )
               })
-          }, 3000)
+          }, 10000)
         }
       } catch (e) {
         Swal.fire('Error', e.response?.data?.message || e.message, 'error')
@@ -146,31 +151,30 @@ export const useCalendarStore = defineStore('calendar', {
         if (source === 'local') {
           await updateLocalEvent(id, eventFields)
         } else if (source === 'google') {
-          // Format for Google
+          // Use the same structure as your local payload for Google sync
           const payload = {
-            summary: eventFields.title,
+            title: eventFields.title,
             description: eventFields.description,
             location: eventFields.location,
-            start: {},
-            end: {},
-            attendees: eventFields.attendees || [],
+            start: dayjs(eventFields.start).toISOString(),
+            end: eventFields.end
+              ? dayjs(eventFields.end).toISOString()
+              : dayjs(eventFields.start).add(1, 'hour').toISOString(),
+            attendees: Array.isArray(eventFields.attendees)
+              ? eventFields.attendees
+                  .filter((a) => a.email)
+                  .map((a) => ({ email: a.email }))
+              : [],
             recurrence: eventFields.recurrence || null,
             visibility: eventFields.visibility || undefined,
             status: eventFields.status || undefined,
             colorId: eventFields.colorId || undefined,
-            reminders: { useDefault: true },
+            reminders: eventFields.reminders || { useDefault: true },
+            url: eventFields.url || undefined,
+            organizer: eventFields.organizer || undefined,
+            creator: eventFields.creator || undefined,
+            attachments: eventFields.attachments || undefined,
           }
-
-          if (eventFields.allDay) {
-            payload.start.date = dayjs(eventFields.start).format('YYYY-MM-DD')
-            payload.end.date = dayjs(eventFields.end).format('YYYY-MM-DD')
-          } else {
-            payload.start.dateTime = dayjs(eventFields.start).toISOString()
-            payload.end.dateTime = eventFields.end
-              ? dayjs(eventFields.end).toISOString()
-              : dayjs(eventFields.start).add(1, 'hour').toISOString()
-          }
-
           await updateGoogleEvent(id, payload)
         }
         await this.loadEvents()

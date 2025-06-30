@@ -47,7 +47,7 @@ const calendarOptions = {
   weekends: true,
   events: fetchEvents,
   select: openCreateModal,
-  eventClick: openEditModal,
+  eventClick: handleEventClick,
 }
 
 function handleWeekendsToggle() {
@@ -75,16 +75,50 @@ function openCreateModal(selectInfo) {
   showModal.value = true
 }
 
-function openEditModal(clickInfo) {
+function handleEventClick(clickInfo) {
+  // Prevent the browser from navigating to the event's URL (if it has one)
   clickInfo.jsEvent.preventDefault()
+
+  if (authStore.isAuthenticated) {
+    openEditModal(clickInfo)
+  } else {
+    // For public users, show a read-only view
+    openViewModal(clickInfo)
+  }
+}
+
+function openEditModal(clickInfo) {
+  if (!authStore.isAuthenticated) return
+
+  // No longer needed here as it's handled in the parent click handler
+  // clickInfo.jsEvent.preventDefault()
+
+  const event = clickInfo.event
+
+  // Helper to get the field from extendedProps or fallback to event object
+  const getField = (field) =>
+    event.extendedProps && event.extendedProps[field] !== undefined
+      ? event.extendedProps[field]
+      : event[field] !== undefined
+      ? event[field]
+      : ''
+
   modalMode.value = 'edit'
   modalEvent.value = {
-    id: clickInfo.event.id,
-    title: clickInfo.event.title,
-    start: clickInfo.event.startStr,
-    end: clickInfo.event.endStr,
-    allDay: clickInfo.event.allDay,
-    source: clickInfo.event.extendedProps.source,
+    id: event.id,
+    title: getField('title'),
+    start: event.startStr || event.start,
+    end: event.endStr || event.end,
+    allDay: event.allDay,
+    source: getField('source'),
+    location: getField('location'),
+    url: getField('url'),
+    description: getField('description'),
+    attendees: getField('attendees') || [],
+    recurrence: getField('recurrence') || null,
+    visibility: getField('visibility') || '',
+    status: getField('status') || '',
+    colorId: getField('colorId') || '',
   }
   showModal.value = true
 }
@@ -119,6 +153,8 @@ async function handleModalDelete(eventId) {
 }
 
 async function handleEventUpdate(changeInfo) {
+  if (!authStore.isAuthenticated) return;
+
   const event = changeInfo.event
   await calendarStore.updateEvent({
     id: event.id,
@@ -190,6 +226,33 @@ async function handleGoogleDisconnect() {
     })
   }
 }
+
+function openViewModal(clickInfo) {
+  const event = clickInfo.event
+  const props = event.extendedProps
+
+  const startTime = dayjs(event.start).format('MMMM D, YYYY h:mm A')
+  const endTime = event.end
+    ? dayjs(event.end).format('MMMM D, YYYY h:mm A')
+    : 'No end time'
+  const description = props.description || 'No description provided.'
+  const location = props.location || 'No location specified.'
+
+  Swal.fire({
+    title: event.title,
+    html: `
+      <div style="text-align: left; padding: 0 1em;">
+        <p><strong>Starts:</strong> ${startTime}</p>
+        <p><strong>Ends:</strong> ${endTime}</p>
+        <p><strong>Location:</strong> ${location}</p>
+        <hr style="margin: 1em 0;" />
+        <p>${description}</p>
+      </div>
+    `,
+    icon: 'info',
+    confirmButtonText: 'Close',
+  })
+}
 </script>
 
 <template>
@@ -213,6 +276,7 @@ async function handleGoogleDisconnect() {
     <!-- Sidebar -->
     <div class="w-80 leading-6 bg-blue-50 border-r border-blue-200">
       <div class="p-8 text-center bg-gray-100">
+        <!-- Show User Info and Logout if Authenticated -->
         <div v-if="authStore.isAuthenticated && authStore.user">
           <span class="block mb-2 font-bold"
             >Welcome, {{ authStore.user.name }}!</span
@@ -223,6 +287,15 @@ async function handleGoogleDisconnect() {
           >
             Logout
           </button>
+        </div>
+        <!-- Show Login if Not Authenticated -->
+        <div v-else>
+          <router-link
+            to="/login"
+            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Login
+          </router-link>
         </div>
       </div>
       <div class="p-8">
