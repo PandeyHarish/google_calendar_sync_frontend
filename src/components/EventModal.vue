@@ -12,10 +12,24 @@
 
         <!-- Guest Info (only for unauthenticated users) -->
         <div v-if="!authStore.isAuthenticated" class="mb-6">
-          <label class="block mb-1 text-gray-600 font-semibold">Your Name</label>
-          <input v-model="guestName" type="text" placeholder="Enter your name" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 mb-2" />
-          <label class="block mb-1 text-gray-600 font-semibold">Your Email</label>
-          <input v-model="guestEmail" type="email" placeholder="Enter your email" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+          <label class="block mb-1 text-gray-600 font-semibold"
+            >Your Name</label
+          >
+          <input
+            v-model="guestName"
+            type="text"
+            placeholder="Enter your name"
+            class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 mb-2"
+          />
+          <label class="block mb-1 text-gray-600 font-semibold"
+            >Your Email</label
+          >
+          <input
+            v-model="guestEmail"
+            type="email"
+            placeholder="Enter your email"
+            class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          />
         </div>
 
         <!-- Title -->
@@ -74,7 +88,7 @@
               class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <div class="flex-1">
+          <!-- <div class="flex-1">
             <label class="block mb-1 text-gray-600 font-semibold"
               >URL/Video Call</label
             >
@@ -84,7 +98,7 @@
               placeholder="Add meeting link"
               class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
-          </div>
+          </div> -->
         </div>
 
         <!-- Description -->
